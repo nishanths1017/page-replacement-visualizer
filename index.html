@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Replacement Algorithm Visualizer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="dark-mode">
+  <div class="app-container" id="app">
+     <header class="glass-card header">
+        <h1><i class="fas fa-memory"></i> Page Replacement Visualizer</h1>
+        <button id="theme-toggle" class="btn-icon" title="Toggle Theme"><i class="fas fa-sun"></i></button>
+     </header>
+
+     <section class="control-panel glass-card">
+        <div class="inputs-container">
+           <div class="input-group">
+              <label for="page-reference">Page Reference String</label>
+              <input type="text" id="page-reference" placeholder="e.g. 7, 0, 1, 2, 0, 3, 0, 4">
+           </div>
+           <div class="input-group small">
+              <label for="frame-size">Frames (1-10)</label>
+              <input type="number" id="frame-size" min="1" max="10" placeholder="3">
+           </div>
+           <div class="input-group">
+              <label for="algo-select">Algorithm</label>
+              <select id="algo-select">
+                 <option value="FIFO">FIFO (First In First Out)</option>
+                 <option value="LRU">LRU (Least Recently Used)</option>
+                 <option value="OPT">Optimal Page Replacement</option>
+                 <option value="MRU">MRU (Most Recently Used)</option>
+              </select>
+           </div>
+           <div class="input-group toggle-group">
+              <label>Compare All</label>
+              <label class="switch">
+                 <input type="checkbox" id="compare-mode">
+                 <span class="slider round"></span>
+              </label>
+           </div>
+        </div>
+        
+        <div class="controls-container">
+           <div class="action-buttons">
+              <button id="btn-start" class="btn btn-primary" title="Start Simulation"><i class="fas fa-play"></i> Start</button>
+              <button id="btn-next" class="btn btn-secondary" disabled title="Next Step (Right Arrow)"><i class="fas fa-step-forward"></i> Next</button>
+              <button id="btn-auto" class="btn btn-secondary" disabled title="Auto Play (Spacebar)"><i class="fas fa-forward"></i> Auto Play</button>
+              <button id="btn-reset" class="btn btn-danger"><i class="fas fa-stop"></i> Reset</button>
+              <button id="btn-export-img" class="btn btn-outline" disabled><i class="fas fa-image"></i> Export Image</button>
+              <button id="btn-export-pdf" class="btn btn-outline" disabled><i class="fas fa-file-pdf"></i> Export PDF</button>
+           </div>
+   
+           <div class="speed-control">
+              <label for="speed-slider"><i class="fas fa-tachometer-alt"></i> Speed: <span id="speed-display">1.0s</span></label>
+              <input type="range" id="speed-slider" min="300" max="2000" step="100" value="1000" dir="rtl">
+           </div>
+        </div>
+     </section>
+
+     <div id="error-message" class="error-toast glass-card hidden"></div>
+
+     <main id="main-content">
+        <!-- SINGLE ALGORITHM VIEW -->
+        <div id="single-view" class="view-section active">
+           <div class="stats-container">
+              <div class="stat-card glass-card">
+                  <div class="stat-icon fault-icon"><i class="fas fa-times-circle"></i></div>
+                  <div class="stat-details">
+                      <h3>Page Faults</h3>
+                      <p id="stat-faults">-</p>
+                  </div>
+              </div>
+              <div class="stat-card glass-card">
+                  <div class="stat-icon hit-icon"><i class="fas fa-check-circle"></i></div>
+                  <div class="stat-details">
+                      <h3>Page Hits</h3>
+                      <p id="stat-hits">-</p>
+                  </div>
+              </div>
+              <div class="stat-card glass-card">
+                  <div class="stat-icon ratio-icon"><i class="fas fa-chart-pie"></i></div>
+                  <div class="stat-details">
+                      <h3>Hit Ratio</h3>
+                      <p id="stat-hit-ratio">-%</p>
+                  </div>
+              </div>
+              <div class="stat-card glass-card">
+                  <div class="stat-icon ratio-icon-alt"><i class="fas fa-chart-line"></i></div>
+                  <div class="stat-details">
+                      <h3>Fault Ratio</h3>
+                      <p id="stat-fault-ratio">-%</p>
+                  </div>
+              </div>
+           </div>
+           
+           <div class="visualization-card glass-card">
+              <div class="vis-header">
+                 <div class="vis-title-group">
+                     <h2 id="current-algo-title">FIFO Algorithm</h2>
+                     <p class="algo-info" id="algo-info">First-In, First-Out replaces the oldest page in memory.</p>
+                 </div>
+                 <div class="step-info-group">
+                     <span id="current-page-indicator" class="badge badge-outline">Page: -</span>
+                     <span id="step-indicator" class="badge">Step 0 / 0</span>
+                 </div>
+              </div>
+              
+              <div class="legend">
+                 <span class="legend-item"><span class="box bg-fault"></span> Page Fault</span>
+                 <span class="legend-item"><span class="box bg-hit"></span> Page Hit</span>
+                 <span class="legend-item"><span class="box bg-replaced"></span> Replaced</span>
+              </div>
+              
+              <div class="grid-scroll-container">
+                 <div id="memory-grid" class="memory-grid">
+                    <!-- Columns appended here -->
+                 </div>
+              </div>
+
+              <div class="explanation-panel mt-4" id="explanation-panel">
+                 <h3><i class="fas fa-info-circle"></i> Step Explanation</h3>
+                 <p id="step-explanation">Start simulation to see explanations.</p>
+              </div>
+           </div>
+        </div>
+
+        <!-- COMPARE MODE VIEW -->
+        <div id="compare-view" class="view-section hidden">
+           <div class="compare-grid">
+              <!-- FIFO -->
+              <div class="compare-card glass-card" id="compare-fifo">
+                 <div class="compare-header">
+                     <h3>FIFO</h3>
+                     <div class="mini-stats">Faults: <span class="cfaults">0</span> | Hits: <span class="chits">0</span></div>
+                 </div>
+                 <div class="grid-scroll-container"><div class="memory-grid mini-grid"></div></div>
+              </div>
+              <!-- LRU -->
+              <div class="compare-card glass-card" id="compare-lru">
+                 <div class="compare-header">
+                     <h3>LRU</h3>
+                     <div class="mini-stats">Faults: <span class="cfaults">0</span> | Hits: <span class="chits">0</span></div>
+                 </div>
+                 <div class="grid-scroll-container"><div class="memory-grid mini-grid"></div></div>
+              </div>
+              <!-- OPTIMAL -->
+              <div class="compare-card glass-card" id="compare-opt">
+                 <div class="compare-header">
+                     <h3>Optimal</h3>
+                     <div class="mini-stats">Faults: <span class="cfaults">0</span> | Hits: <span class="chits">0</span></div>
+                 </div>
+                 <div class="grid-scroll-container"><div class="memory-grid mini-grid"></div></div>
+              </div>
+              <!-- MRU -->
+              <div class="compare-card glass-card" id="compare-mru">
+                 <div class="compare-header">
+                     <h3>MRU</h3>
+                     <div class="mini-stats">Faults: <span class="cfaults">0</span> | Hits: <span class="chits">0</span></div>
+                 </div>
+                 <div class="grid-scroll-container"><div class="memory-grid mini-grid"></div></div>
+              </div>
+           </div>
+           
+           <div class="chart-container glass-card mt-4">
+              <h2>Performance Comparison (Page Faults)</h2>
+              <div class="canvas-wrapper">
+                 <canvas id="comparisonChart"></canvas>
+              </div>
+           </div>
+        </div>
+     </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
