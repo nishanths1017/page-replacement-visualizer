@@ -677,6 +677,11 @@ function exportImage() {
         useCORS: true,
         backgroundColor: isDark ? '#0f172a' : '#f0f4f8',
         onclone: (clonedDoc) => {
+            // Fix for html2canvas capturing elements mid-animation (causing faded/transparent output)
+            const style = clonedDoc.createElement('style');
+            style.innerHTML = '* { animation: none !important; transition: none !important; }';
+            clonedDoc.head.appendChild(style);
+
             const mainContent = clonedDoc.getElementById('main-content');
             mainContent.style.background = isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)';
             mainContent.style.padding = '20px';
@@ -713,6 +718,11 @@ function exportPDF() {
             useCORS: true,
             backgroundColor: isDark ? '#0f172a' : '#f0f4f8',
             onclone: (clonedDoc) => {
+                // Fix for html2canvas capturing elements mid-animation (causing faded/transparent output)
+                const style = clonedDoc.createElement('style');
+                style.innerHTML = '* { animation: none !important; transition: none !important; }';
+                clonedDoc.head.appendChild(style);
+
                 const mainContent = clonedDoc.getElementById('main-content');
                 mainContent.style.background = isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)';
                 mainContent.style.padding = '20px';
