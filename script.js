@@ -672,74 +672,79 @@ function exportImage() {
     const element = document.getElementById('main-content');
     const isDark = document.body.classList.contains('dark-mode');
     
-    const options = {
-        scale: 2, 
-        useCORS: true,
-        backgroundColor: isDark ? '#0f172a' : '#f0f4f8',
-        onclone: (clonedDoc) => {
-            // Fix for html2canvas capturing elements mid-animation (causing faded/transparent output)
-            const style = clonedDoc.createElement('style');
-            style.innerHTML = '* { animation: none !important; transition: none !important; }';
-            clonedDoc.head.appendChild(style);
-
-            const mainContent = clonedDoc.getElementById('main-content');
-            mainContent.style.background = isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)';
-            mainContent.style.padding = '20px';
-            mainContent.style.borderRadius = '16px';
-            
-            // Fix for html2canvas ignoring backdrop-filter
-            const glassCards = mainContent.querySelectorAll('.glass-card');
-            glassCards.forEach(card => {
-                card.style.backdropFilter = 'none';
-                card.style.webkitBackdropFilter = 'none';
-                card.style.backgroundColor = isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)';
-            });
+    // Halt animations on the actual DOM and force opaque backgrounds BEFORE cloning
+    // This is bulletproof against html2canvas timing and iframe cloning bugs
+    const style = document.createElement('style');
+    style.id = 'export-overrides';
+    style.innerHTML = `
+        * { animation: none !important; transition: none !important; opacity: 1 !important; }
+        #main-content {
+            background: ${isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)'} !important;
+            padding: 20px !important;
+            border-radius: 16px !important;
         }
-    };
+        .glass-card {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: ${isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)'} !important;
+            box-shadow: none !important;
+        }
+    `;
+    document.head.appendChild(style);
 
-    html2canvas(element, options).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `PageReplacement_${state.isCompareMode ? 'Compare' : state.algo}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    });
+    // Give browser time to apply styles natively before snapping
+    setTimeout(() => {
+        html2canvas(element, { scale: 2, useCORS: true }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `PageReplacement_${state.isCompareMode ? 'Compare' : state.algo}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            document.head.removeChild(style);
+        }).catch(err => {
+            console.error(err);
+            if (document.head.contains(style)) document.head.removeChild(style);
+        });
+    }, 100);
 }
 
 function exportPDF() {
     const element = document.getElementById('main-content');
     const isDark = document.body.classList.contains('dark-mode');
     
-    const opt = {
-        margin:       10,
-        filename:     `PageReplacement_${state.isCompareMode ? 'Compare' : state.algo}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-            scale: 2, 
-            useCORS: true,
-            backgroundColor: isDark ? '#0f172a' : '#f0f4f8',
-            onclone: (clonedDoc) => {
-                // Fix for html2canvas capturing elements mid-animation (causing faded/transparent output)
-                const style = clonedDoc.createElement('style');
-                style.innerHTML = '* { animation: none !important; transition: none !important; }';
-                clonedDoc.head.appendChild(style);
+    const style = document.createElement('style');
+    style.id = 'export-overrides';
+    style.innerHTML = `
+        * { animation: none !important; transition: none !important; opacity: 1 !important; }
+        #main-content {
+            background: ${isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)'} !important;
+            padding: 20px !important;
+            border-radius: 16px !important;
+        }
+        .glass-card {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: ${isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)'} !important;
+            box-shadow: none !important;
+        }
+    `;
+    document.head.appendChild(style);
 
-                const mainContent = clonedDoc.getElementById('main-content');
-                mainContent.style.background = isDark ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' : 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)';
-                mainContent.style.padding = '20px';
-                mainContent.style.borderRadius = '16px';
-                
-                // Fix for html2canvas ignoring backdrop-filter
-                const glassCards = mainContent.querySelectorAll('.glass-card');
-                glassCards.forEach(card => {
-                    card.style.backdropFilter = 'none';
-                    card.style.webkitBackdropFilter = 'none';
-                    card.style.backgroundColor = isDark ? 'rgba(30, 41, 59, 1)' : 'rgba(255, 255, 255, 1)';
-                });
-            }
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-    html2pdf().set(opt).from(element).save();
+    setTimeout(() => {
+        const opt = {
+            margin:       10,
+            filename:     `PageReplacement_${state.isCompareMode ? 'Compare' : state.algo}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            document.head.removeChild(style);
+        }).catch(err => {
+            console.error(err);
+            if (document.head.contains(style)) document.head.removeChild(style);
+        });
+    }, 100);
 }
 
 // Initialization
